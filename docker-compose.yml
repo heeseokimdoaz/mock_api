@@ -1,0 +1,20 @@
+services:
+  mock-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock-api
+    ports:
+      - "8000:8000"
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3000:3000"
+    environment:
+      - TAPACROSS_API_URL=http://mock-api:8000
+      - TAPACROSS_CLIENT_ID=mock_client_123
+      - TAPACROSS_SEARCH_ID=10
+    depends_on:
+      - mock-api

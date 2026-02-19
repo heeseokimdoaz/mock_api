@@ -1,0 +1,42 @@
+[
+  {
+    "create_date": "20260208",
+    "site_type": "comm",
+    "doc_count": 1
+  },
+  {
+    "create_date": "20260209",
+    "site_type": "comm",
+    "doc_count": 3
+  },
+  {
+    "create_date": "20260210",
+    "site_type": "comm",
+    "doc_count": 5
+  },
+  {
+    "create_date": "20260211",
+    "site_type": "comm",
+    "doc_count": 5
+  },
+  {
+    "create_date": "20260212",
+    "site_type": "comm",
+    "doc_count": 6
+  },
+  {
+    "create_date": "20260212",
+    "site_type": "media",
+    "doc_count": 17
+  },
+  {
+    "create_date": "20260212",
+    "site_type": "twitter",
+    "doc_count": 8
+  },
+  {
+    "create_date": "20260212",
+    "site_type": "youtube",
+    "doc_count": 1
+  }
+]
