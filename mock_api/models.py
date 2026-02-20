@@ -29,6 +29,22 @@ class DocResponse(BaseModel):
     data: list[DocItem]
 
 
+class NewspaperItem(BaseModel):
+    create_date: str
+    site_type: str
+    site_name: str
+    region: str
+    title: Optional[str]
+    content: str
+    url: str
+    polarity: str
+
+
+class NewspaperResponse(BaseModel):
+    status: str = "success"
+    data: list[NewspaperItem]
+
+
 class ErrorResponse(BaseModel):
     status: str = "error"
     message: str

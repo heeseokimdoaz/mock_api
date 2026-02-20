@@ -131,13 +131,57 @@ Returns individual documents (articles, posts, tweets, videos).
 
 > **Polarity values:** `"0"` = Neutral, `"1"` = Positive, `"2"` = Negative
 
+#### `GET /v1/oracleye/newspaper`
+
+Returns newspaper articles with **regional classification** for regional bias analysis.
+
+| Parameter   | Required | Default | Description                                                  |
+|-------------|----------|---------|--------------------------------------------------------------|
+| `client_id` | Yes      | —       | API client identifier                                        |
+| `search_id` | Yes      | —       | Search configuration ID                                      |
+| `from`      | Yes      | —       | Start datetime (`yyyyMMddHHmmss`)                            |
+| `to`        | Yes      | —       | End datetime (`yyyyMMddHHmmss`)                              |
+| `region`    | No       | —       | Filter: `national`, `seoul`, `jeolla`, `gyeongsang`          |
+| `site_name` | No       | —       | Filter by newspaper name (e.g. `조선일보`)                    |
+| `offset`    | No       | `0`     | Pagination offset                                            |
+| `size`      | No       | `100`   | Results per page                                             |
+
+**Region mapping:**
+
+| Region       | Code          | Newspapers                      |
+|--------------|---------------|---------------------------------|
+| National     | `national`    | 조선일보, 중앙일보               |
+| Seoul        | `seoul`       | 서울신문, 국민일보               |
+| Jeolla       | `jeolla`      | 전북도민일보, 무등일보            |
+| Gyeongsang   | `gyeongsang`  | 부산일보, 매일신문               |
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "create_date": "20260210153000",
+      "site_type": "newspaper",
+      "site_name": "조선일보",
+      "region": "national",
+      "title": "Article title here",
+      "content": "Full article content...",
+      "url": "https://...",
+      "polarity": "0"
+    }
+  ]
+}
+```
+
 ### Backend (port 3000)
 
-| Endpoint          | Description                     | Key Params                              |
-|-------------------|---------------------------------|-----------------------------------------|
-| `GET /api/trend`  | Trend data (simplified params)  | `from_date`, `to_date`, `site_type`     |
-| `GET /api/documents` | Document list (paginated)    | `from_date`, `to_date`, `site_type`, `offset`, `size` |
-| `GET /`           | Serves frontend static files    | —                                       |
+| Endpoint             | Description                          | Key Params                                              |
+|----------------------|--------------------------------------|---------------------------------------------------------|
+| `GET /api/trend`     | Trend data (simplified params)       | `from_date`, `to_date`, `site_type`                     |
+| `GET /api/documents` | Document list (paginated)            | `from_date`, `to_date`, `site_type`, `offset`, `size`   |
+| `GET /api/newspapers`| Newspaper articles by region         | `from_date`, `to_date`, `region`, `site_name`, `offset`, `size` |
+| `GET /`              | Serves frontend static files         | —                                                       |
 
 ---
 
@@ -152,11 +196,12 @@ mock_api/
 │
 ├── mock_api/                  # Mock API application
 │   ├── main.py                # FastAPI app setup + CORS
-│   ├── models.py              # Pydantic response models (TrendItem, DocItem)
+│   ├── models.py              # Pydantic response models (TrendItem, DocItem, NewspaperItem)
 │   ├── data_store.py          # Loads JSON data + query/filter logic
 │   └── routers/
 │       ├── trend.py           # GET /v1/oracleye/trend
-│       └── doc.py             # GET /v1/oracleye/doc
+│       ├── doc.py             # GET /v1/oracleye/doc
+│       └── newspaper.py       # GET /v1/oracleye/newspaper
 │
 ├── backend/                   # Backend proxy application
 │   ├── app.py                 # FastAPI app + static file serving
@@ -173,14 +218,15 @@ mock_api/
 │
 └── data/converted/            # Pre-converted mock data
     ├── trend_data.json        # Daily aggregated counts
-    └── all_documents.json     # Individual documents
+    ├── all_documents.json     # Individual documents
+    └── newspaper_articles.json # Newspaper articles with region info
 ```
 
 ---
 
-## Data Sources
+## Data Pipeline
 
-Mock data is converted from 4 Excel files covering **2026-02-08 ~ 2026-02-12**:
+### General sources (4 Excel files → 2 JSON files)
 
 | Source File         | `site_type` | Description            |
 |---------------------|-------------|------------------------|
@@ -189,7 +235,26 @@ Mock data is converted from 4 Excel files covering **2026-02-08 ~ 2026-02-12**:
 | 유튜브 스크립트.xlsx   | `youtube`   | YouTube video scripts  |
 | 커뮤니티.xlsx         | `comm`      | Community forum posts  |
 
-To regenerate JSON data from updated Excel files:
+Output: `all_documents.json` (merged) + `trend_data.json` (aggregated counts)
+
+### Newspaper sources (8 Excel files → 1 JSON file)
+
+| Source File     | `region`      | Description              |
+|-----------------|---------------|--------------------------|
+| 조선일보.xlsx    | `national`    | Chosun Ilbo (national)   |
+| 중앙일보.xlsx    | `national`    | JoongAng Ilbo (national) |
+| 서울신문.xlsx    | `seoul`       | Seoul Shinmun            |
+| 국민일보.xlsx    | `seoul`       | Kukmin Ilbo              |
+| 전북도민일보.xlsx | `jeolla`      | Jeonbuk Domin Ilbo       |
+| 무등일보.xlsx    | `jeolla`      | Mudeung Ilbo             |
+| 부산일보.xlsx    | `gyeongsang`  | Busan Ilbo               |
+| 매일신문.xlsx    | `gyeongsang`  | Maeil Shinmun            |
+
+Output: `newspaper_articles.json` (merged with `region` field for regional bias analysis)
+
+**Data period:** 2026-02-08 ~ 2026-02-12
+
+To regenerate all JSON data from updated Excel files:
 
 ```bash
 python converter/convert_excel.py

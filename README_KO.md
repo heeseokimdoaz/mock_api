@@ -108,12 +108,56 @@ Swagger UI에서 "Try it out" 버튼을 누르면 파라미터를 채우고 바�
 
 > **감성 분석 (polarity):** `"0"` = 중립, `"1"` = 긍정, `"2"` = 부정
 
+#### `GET /v1/oracleye/newspaper` — 신문 기사 (지역별)
+
+지역색 분석을 위해 **지역(region) 분류가 포함된** 신문 기사를 반환합니다.
+
+| 파라미터 | 필수 | 기본값 | 설명 |
+|----------|------|--------|------|
+| `client_id` | O | — | API 클라이언트 식별자 |
+| `search_id` | O | — | 검색 설정 ID |
+| `from` | O | — | 시작 일시 (`yyyyMMddHHmmss`) |
+| `to` | O | — | 종료 일시 (`yyyyMMddHHmmss`) |
+| `region` | X | — | 필터: `national`, `seoul`, `jeolla`, `gyeongsang` |
+| `site_name` | X | — | 신문사명 필터 (예: `조선일보`) |
+| `offset` | X | `0` | 페이지네이션 오프셋 |
+| `size` | X | `100` | 한 페이지당 결과 수 |
+
+**지역 매핑:**
+
+| 지역 | 코드 | 신문사 |
+|------|------|--------|
+| 전국 | `national` | 조선일보, 중앙일보 |
+| 서울 | `seoul` | 서울신문, 국민일보 |
+| 전라 | `jeolla` | 전북도민일보, 무등일보 |
+| 경상 | `gyeongsang` | 부산일보, 매일신문 |
+
+**응답 예시:**
+```json
+{
+  "status": "success",
+  "data": [
+    {
+      "create_date": "20260210153000",
+      "site_type": "newspaper",
+      "site_name": "조선일보",
+      "region": "national",
+      "title": "기사 제목",
+      "content": "기사 본문...",
+      "url": "https://...",
+      "polarity": "0"
+    }
+  ]
+}
+```
+
 ### 백엔드 (포트 3000)
 
 | 엔드포인트 | 설명 | 주요 파라미터 |
 |------------|------|---------------|
 | `GET /api/trend` | 트렌드 데이터 (간소화된 파라미터) | `from_date`, `to_date`, `site_type` |
 | `GET /api/documents` | 문서 목록 (페이지네이션) | `from_date`, `to_date`, `site_type`, `offset`, `size` |
+| `GET /api/newspapers` | 신문 기사 (지역별) | `from_date`, `to_date`, `region`, `site_name`, `offset`, `size` |
 | `GET /` | 프론트엔드 정적 파일 서빙 | — |
 
 ---
@@ -129,11 +173,12 @@ mock_api/
 │
 ├── mock_api/                  # Mock API 애플리케이션
 │   ├── main.py                # FastAPI 앱 초기화 + CORS 설정
-│   ├── models.py              # Pydantic 응답 모델 (TrendItem, DocItem)
+│   ├── models.py              # Pydantic 응답 모델 (TrendItem, DocItem, NewspaperItem)
 │   ├── data_store.py          # JSON 데이터 로딩 + 쿼리/필터 로직
 │   └── routers/
 │       ├── trend.py           # GET /v1/oracleye/trend
-│       └── doc.py             # GET /v1/oracleye/doc
+│       ├── doc.py             # GET /v1/oracleye/doc
+│       └── newspaper.py       # GET /v1/oracleye/newspaper
 │
 ├── backend/                   # 백엔드 프록시
 │   ├── app.py                 # FastAPI 앱 + 정적 파일 서빙
@@ -150,14 +195,15 @@ mock_api/
 │
 └── data/converted/            # 변환된 Mock 데이터
     ├── trend_data.json        # 일별 집계 데이터
-    └── all_documents.json     # 개별 문서 데이터
+    ├── all_documents.json     # 개별 문서 데이터
+    └── newspaper_articles.json # 신문 기사 (지역 정보 포함)
 ```
 
 ---
 
-## 데이터 소스
+## 데이터 파이프라인
 
-4개의 엑셀 파일에서 변환된 Mock 데이터 (기간: **2026-02-08 ~ 2026-02-12**):
+### 일반 소스 (엑셀 4개 → JSON 2개)
 
 | 소스 파일 | `site_type` | 설명 |
 |-----------|-------------|------|
@@ -165,6 +211,25 @@ mock_api/
 | 매스미디어.xlsx | `media` | 매스미디어 뉴스 |
 | 유튜브 스크립트.xlsx | `youtube` | 유튜브 영상 스크립트 |
 | 커뮤니티.xlsx | `comm` | 커뮤니티 게시글 |
+
+출력: `all_documents.json` (병합) + `trend_data.json` (집계)
+
+### 신문 소스 (엑셀 8개 → JSON 1개)
+
+| 소스 파일 | `region` | 설명 |
+|-----------|----------|------|
+| 조선일보.xlsx | `national` | 전국지 |
+| 중앙일보.xlsx | `national` | 전국지 |
+| 서울신문.xlsx | `seoul` | 서울 |
+| 국민일보.xlsx | `seoul` | 서울 |
+| 전북도민일보.xlsx | `jeolla` | 전라 |
+| 무등일보.xlsx | `jeolla` | 전라 |
+| 부산일보.xlsx | `gyeongsang` | 경상 |
+| 매일신문.xlsx | `gyeongsang` | 경상 |
+
+출력: `newspaper_articles.json` (병합 + `region` 필드 포함, 프론트엔드 지역색 분석용)
+
+**데이터 기간:** 2026-02-08 ~ 2026-02-12
 
 엑셀 데이터를 업데이트한 후 JSON을 재생성하려면:
 

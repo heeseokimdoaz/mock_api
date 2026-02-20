@@ -3,11 +3,13 @@ from pathlib import Path
 
 
 class DataStore:
-    def __init__(self, docs_path: str, trend_path: str):
+    def __init__(self, docs_path: str, trend_path: str, newspaper_path: str):
         with open(docs_path, encoding="utf-8") as f:
             self.documents: list[dict] = json.load(f)
         with open(trend_path, encoding="utf-8") as f:
             self.trend_data: list[dict] = json.load(f)
+        with open(newspaper_path, encoding="utf-8") as f:
+            self.newspapers: list[dict] = json.load(f)
 
     def query_trend(
         self,
@@ -41,8 +43,30 @@ class DataStore:
         return results[offset : offset + size]
 
 
+    def query_newspapers(
+        self,
+        from_date: str,
+        to_date: str,
+        region: str | None = None,
+        site_name: str | None = None,
+        offset: int = 0,
+        size: int = 100,
+    ) -> list[dict]:
+        results = []
+        for doc in self.newspapers:
+            if from_date <= doc["create_date"] <= to_date:
+                if region is not None and doc["region"] != region:
+                    continue
+                if site_name is not None and doc["site_name"] != site_name:
+                    continue
+                results.append(doc)
+        results.sort(key=lambda x: x["create_date"], reverse=True)
+        return results[offset : offset + size]
+
+
 _data_dir = Path(__file__).resolve().parent.parent / "data" / "converted"
 store = DataStore(
     str(_data_dir / "all_documents.json"),
     str(_data_dir / "trend_data.json"),
+    str(_data_dir / "newspaper_articles.json"),
 )

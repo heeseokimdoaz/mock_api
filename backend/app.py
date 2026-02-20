@@ -37,5 +37,19 @@ async def documents(
     return await client.get_documents(from_date, to_date, site_type, offset, size)
 
 
+@app.get("/api/newspapers")
+async def newspapers(
+    from_date: str = Query("20260208000000"),
+    to_date: str = Query("20260212235959"),
+    region: str | None = Query(None),
+    site_name: str | None = Query(None),
+    offset: int = Query(0),
+    size: int = Query(20),
+):
+    return await client.get_newspapers(
+        from_date, to_date, region, site_name, offset, size
+    )
+
+
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")

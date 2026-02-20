@@ -52,3 +52,30 @@ class TapaCrossClient:
                 f"{self.base_url}/v1/oracleye/doc", params=params
             )
             return resp.json()
+
+    async def get_newspapers(
+        self,
+        from_date: str,
+        to_date: str,
+        region: str | None = None,
+        site_name: str | None = None,
+        offset: int = 0,
+        size: int = 100,
+    ) -> dict:
+        params = {
+            "client_id": self.client_id,
+            "from": from_date,
+            "to": to_date,
+            "search_id": self.search_id,
+            "offset": offset,
+            "size": size,
+        }
+        if region:
+            params["region"] = region
+        if site_name:
+            params["site_name"] = site_name
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{self.base_url}/v1/oracleye/newspaper", params=params
+            )
+            return resp.json()

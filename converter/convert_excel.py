@@ -19,6 +19,20 @@ SITE_TYPE_MAP = {
     "커뮤니티": "comm",
 }
 
+NEWSPAPER_REGION_MAP = {
+    "조선일보": "national",
+    "중앙일보": "national",
+    "서울신문": "seoul",
+    "국민일보": "seoul",
+    "전북도민일보": "jeolla",
+    "무등일보": "jeolla",
+    "부산일보": "gyeongsang",
+    "매일신문": "gyeongsang",
+}
+
+# 조선일보만 9컬럼(작성자 포함), 나머지는 8컬럼
+NEWSPAPER_HAS_AUTHOR = {"조선일보"}
+
 
 def convert_date(date_val) -> str:
     """'2026-02-12 23:20:29' -> '20260212232029'"""
@@ -122,6 +136,38 @@ def load_community(filepath: str) -> list[dict]:
     return docs
 
 
+def load_newspaper(filepath: str, paper_name: str) -> list[dict]:
+    """신문 엑셀: header at row 2, data from row 3
+    Schema B (8컬럼): 매체, 제목, 본문, 작성일, URL, 사이트 구분, 사이트명, 긍부정
+    Schema A (9컬럼, 조선일보): 매체, 제목, 본문, 작성자, 작성일, URL, 사이트 구분, 사이트명, 긍부정
+    """
+    wb = openpyxl.load_workbook(filepath)
+    ws = wb.active
+    has_author = paper_name in NEWSPAPER_HAS_AUTHOR
+    region = NEWSPAPER_REGION_MAP[paper_name]
+    docs = []
+    for row in ws.iter_rows(min_row=3, max_row=ws.max_row, values_only=True):
+        if has_author:
+            date_val, title_val, content_val = row[4], row[1], row[2]
+            url_val, polarity_val = row[5], row[8]
+        else:
+            date_val, title_val, content_val = row[3], row[1], row[2]
+            url_val, polarity_val = row[4], row[7]
+        if not date_val:
+            continue
+        docs.append({
+            "create_date": convert_date(date_val),
+            "site_type": "newspaper",
+            "site_name": paper_name,
+            "region": region,
+            "title": safe_str(title_val) or None,
+            "content": safe_str(content_val),
+            "url": safe_str(url_val),
+            "polarity": POLARITY_MAP.get(safe_str(polarity_val), "0"),
+        })
+    return docs
+
+
 def build_trend_data(all_docs: list[dict]) -> list[dict]:
     counts = defaultdict(int)
     for doc in all_docs:
@@ -168,6 +214,25 @@ def main():
         by_type[doc["site_type"]] += 1
     for st, cnt in sorted(by_type.items()):
         print(f"  {st}: {cnt}")
+
+    # 신문 데이터 변환
+    newspaper_docs = []
+    for paper_name in NEWSPAPER_REGION_MAP:
+        filepath = excel_dir / f"{paper_name}.xlsx"
+        if filepath.exists():
+            docs = load_newspaper(str(filepath), paper_name)
+            newspaper_docs.extend(docs)
+            print(f"  newspaper/{paper_name}: {len(docs)}")
+        else:
+            print(f"  newspaper/{paper_name}: SKIPPED (file not found)")
+
+    newspaper_docs.sort(key=lambda x: x["create_date"], reverse=True)
+
+    newspaper_path = DATA_DIR / "newspaper_articles.json"
+    with open(newspaper_path, "w", encoding="utf-8") as f:
+        json.dump(newspaper_docs, f, ensure_ascii=False, indent=2)
+
+    print(f"Newspapers: {len(newspaper_docs)} items -> {newspaper_path}")
 
 
 if __name__ == "__main__":
